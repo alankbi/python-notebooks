@@ -42,13 +42,13 @@ When indexed, the GateDataset object returns a tuple of size two: the first elem
 **Example Usage:**
 
 ```python
-transforms = transforms.Compose([
+img_transforms = transforms.Compose([
     transforms.ToPILImage(),
     transforms.Resize(108),
     transforms.ToTensor(), 
 ])
 
-dataset = GateDataset('labels.csv', 'images/', transform=transforms)
+dataset = GateDataset('labels.csv', 'images/', transform=img_transforms)
 image, target = dataset[0]
 print(image.shape, target['boxes'], target['labels'])
 # Example output: (1080, 1720, 3), tensor([[1114,  466, 1153,  627]]), tensor([2])
@@ -56,17 +56,90 @@ print(image.shape, target['boxes'], target['labels'])
 
 #### Functions
 
+##### `def detect_video(model, device, input_file, output_file)`
+
+Takes in a source video and generates a new video with live object detection at every frame. 
+
+**Parameters:**
+
+- `model`: The model to use for predictions.
+- `device`: The device on which to run the predictions. 
+- `input_file`: The path to the input video file. 
+- `output_file`: Where to write the output video. The output file must be in .avi format. 
+
+**Example Usage:**
+
+```python
+... # Code to create model and device
+detect_video(model, device, 'input_video.mp4', 'out/video1.avi')
+```
+
+
+
+##### `def get_clean_predictions(model, images, device)`
+
+Get predictions for a single image. 
+
+**Parameters:**
+
+- `model`: The model to use for predictions.
+- `images`: An image or list of images on which to run object detection.
+- `device`: The device to run the code on. 
+
+**Return:**
+
+If images is a list of images, returns a list of size N (the number of images), with each element being a list of size 4. Otherwise, if images is a single image, returns a single list of size 4. Each list of size 4 contains 1. a list of size K (number of predicted objects within the current image) containing the string labels for each predicted object, 2. a tensor of size [K, 4] containing the box coordinates, 3. a tensor of size K containing the prediction scores, and 4. the image itself. 
+
+**Example Usage:**
+
+```python
+from skimage import io
+
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+model = ... # See 'Example Code' section for info on creating the model
+image = io.imread('image.png')
+
+labels, boxes, scores, image = get_clean_predictions(model, image, device)
+```
+
+
+
+##### `def filter_top_predictions(labels, boxes, scores)`
+
+Filters out the top scoring predictions of each class from the given data. 
+
+**Parameters:**
+
+- `labels`: A list containing the string labels.
+- `boxes`: A tensor of size [N, 4] containing the box coordinates.
+- `scores`: A tensor of size N containing the score for each prediction. 
+
+**Return:**
+
+Returns a list of size K, where K is the number of uniquely predicted classes in labels. Each element in the list is a tuple containing the label, a tensor of size 4 containing the box coordinates, and the score for that prediction. 
+
+**Example Usage:**
+
+```python
+... # Code to create model, image, and device
+labels, boxes, scores, _ = get_clean_predictions(model, image, device)
+top_preds = filter_top_predictions(labels, boxes, scores)
+top_label, top_box, top_score = top_preds[0]
+```
+
+
+
 ##### `def int_to_label(val)`
 
 Maps integers to labels after receiving predictions from a model. 
 
 **Parameters:**
 
-- `val`: The integer value of a class
+- `val`: The integer value of a class.
 
 **Return:**
 
-Returns the string label associated with the given integer
+Returns the string label associated with the given integer.
 
 **Example Usage:**
 
@@ -92,6 +165,101 @@ Returns an integer ranging from 0 to the number of classes.
 
 ```python
 print(label_to_int('start_gate')) # Prints 1
+```
+
+
+
+##### `def load_model(path, device, num_classes)`
+
+Load model from saved weights. 
+
+**Parameters:**
+
+- `path`: Path to the .pth file containing the saved weights file. 
+- `device`: The device to send the model to. 
+- `num_classes`: The number of classes the model was trained to predict (including the default background). 
+
+**Return:**
+
+Returns the loaded model. 
+
+**Example Usage:**
+
+```python
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+model = load_model('model_weights.pth', device, 3)
+```
+
+
+
+##### `def plot_prediction_grid(model, dataset, device, start=0, step=2)`
+
+Creates a 3x3 grid of plots containing the model's predictions over certain images in a dataset. 
+
+**Parameters:**
+
+- `model`: The model to use for predictions.
+- `dataset`: A GateDataset object containing the gate images. 
+- `device`: The device on which to run the predictions. 
+- `start`: Starting index of the gate dataset to predict on. Defaults to 0.
+- `step`: How far to jump ahead through the dataset for each successive plot in the grid. Defaults to 2.
+
+**Example Usage:**
+
+```python
+... # Code to create model, dataset, and device
+plot_prediction_grid(model, dataset, device, start=20)
+```
+
+
+
+##### `def reverse_normalize(image)`
+
+Undos the default normalize transform on an image to return it to its original self (usually so that it can be plotted). The default normalization for PyTorch's pre-trained models is the following:
+
+`transforms.Normalize(mean=[-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.255], std=[1 / 0.229, 1 / 0.224, 1 / 0.255])`
+
+**Parameters:**
+
+- `image`: The normalized image.
+
+**Return:**
+
+Returns the image without normalization. 
+
+**Example Usage:**
+
+```python
+from skimage import io
+
+image = io.imread('image.png')
+
+img_transforms = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+transformed_image = img_transforms(image)
+reverse_normalized_image = reverse_normalize(transformed_image)
+```
+
+
+
+##### `def save_model(model, path)`
+
+Saves the model weights to a .pth file. 
+
+**Parameters:**
+
+- `model`: The model to save.
+- `path`: The file path to save the model weights to. 
+
+**Example Usage:**
+
+```python
+model = ... # See 'Example Code' section for info on creating the model
+save_model(model, 'model_weights.pth')
 ```
 
 
@@ -165,5 +333,58 @@ Converts a directory of XML label files into a CSV file. The CSV file has the fo
 
 ```python
 xml_to_csv('xml_labels/', 'labels.csv')
+```
+
+
+
+## Example Code
+
+Below is some example code showing how to make use of the classes and functions created in the notebook. 
+
+```python
+# TODO: this and collate_data
+
+# Convert your XML files into a single CSV file
+xml_to_csv('xml_labels/', 'labels.csv')
+
+# Define the transforms you want to apply to your images
+transform_img = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.Resize(108),
+    transforms.RandomHorizontalFlip(0.5),
+    transforms.ColorJitter(saturation=0.5),
+    transforms.ToTensor(), 
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
+
+# Create the dataset and data loader 
+dataset = GateDataset('labels.csv', 'images/', transform=transform_img)
+loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=2, shuffle=True, collate_fn=collate_data)
+
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+
+# Load a model pre-trained on COCO
+model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
+
+# Number of classes we want the fine-tuned model to predict
+num_classes = NUM_CLASSES  # 3: start_tick + start_gate + background
+
+# Get the number of input features for the classifier
+in_features = model.roi_heads.box_predictor.cls_score.in_features
+# Replace the pre-trained head with a new one
+model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+model = model.to(device)
+
+
+losses = train_model(model, loader_train, device, epochs=1, learning_rate=0.01, lr_step_size=2)
+
+plt.plot(losses)
+plt.show()
+
+plot_prediction_grid(model, dataset, device)
+
+detect_video(model, device, VIDEO_1, VIDEO_1_OUTPUT)
 ```
 
