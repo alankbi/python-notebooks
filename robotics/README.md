@@ -8,7 +8,7 @@ The goal is to create an autonomous robot that is able to navigate various under
 
 ## Technologies
 
-The code is written in Python and hosted in a Google Colaboratory notebook. We use [PyTorch](https://pytorch.org/) and PyTorch's [torchvision](https://pytorch.org/docs/stable/torchvision/index.html) package to do most of the machine learning work. [scikit-image](https://scikit-image.org/) is for reading in images, and [matplotlib](https://matplotlib.org/) is for visualizing all the images and predictions we generate. Other libraries specific to certain code cells are imported when needed.
+The code is written in Python and hosted in a [Google Colaboratory](https://colab.research.google.com/notebooks/welcome.ipynb) notebook. We use [PyTorch](https://pytorch.org/) and PyTorch's [torchvision](https://pytorch.org/docs/stable/torchvision/index.html) package to do most of the machine learning work. [scikit-image](https://scikit-image.org/) is for reading in images, and [matplotlib](https://matplotlib.org/) is for visualizing all the images and predictions we generate. Other libraries specific to certain code cells are imported when needed.
 
 ## Notebook Overview
 
@@ -97,6 +97,31 @@ detect_video(model, device, 'input_video.mp4', 'out/video1.avi')
 
 
 
+####  `def filter_top_predictions(labels, boxes, scores)`
+
+Filters out the top scoring predictions of each class from the given data. 
+
+**Parameters:**
+
+- `labels`: A list containing the string labels.
+- `boxes`: A tensor of size [N, 4] containing the box coordinates.
+- `scores`: A tensor of size N containing the score for each prediction. 
+
+**Return:**
+
+Returns a list of size K, where K is the number of uniquely predicted classes in labels. Each element in the list is a tuple containing the label, a tensor of size 4 containing the box coordinates, and the score for that prediction. 
+
+**Example Usage:**
+
+```python
+... # Code to create model, image, and device
+labels, boxes, scores, _ = get_clean_predictions(model, image, device)
+top_preds = filter_top_predictions(labels, boxes, scores)
+top_label, top_box, top_score = top_preds[0]
+```
+
+
+
 #### `def get_clean_predictions(model, images, device)`
 
 Get predictions for a single image. 
@@ -121,31 +146,6 @@ model = ... # See 'Example Code' section for info on creating the model
 image = io.imread('image.png')
 
 labels, boxes, scores, image = get_clean_predictions(model, image, device)
-```
-
-
-
-####  `def filter_top_predictions(labels, boxes, scores)`
-
-Filters out the top scoring predictions of each class from the given data. 
-
-**Parameters:**
-
-- `labels`: A list containing the string labels.
-- `boxes`: A tensor of size [N, 4] containing the box coordinates.
-- `scores`: A tensor of size N containing the score for each prediction. 
-
-**Return:**
-
-Returns a list of size K, where K is the number of uniquely predicted classes in labels. Each element in the list is a tuple containing the label, a tensor of size 4 containing the box coordinates, and the score for that prediction. 
-
-**Example Usage:**
-
-```python
-... # Code to create model, image, and device
-labels, boxes, scores, _ = get_clean_predictions(model, image, device)
-top_preds = filter_top_predictions(labels, boxes, scores)
-top_label, top_box, top_score = top_preds[0]
 ```
 
 
