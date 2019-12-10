@@ -238,7 +238,7 @@ plot_prediction_grid(model, dataset, device, start=20)
 
 Undos the default normalize transform on an image to return it to its original self (usually so that it can be plotted). The default normalization for PyTorch's pre-trained models is the following:
 
-`transforms.Normalize(mean=[-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.255], std=[1 / 0.229, 1 / 0.224, 1 / 0.255])`
+`transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])`
 
 **Parameters:**
 
