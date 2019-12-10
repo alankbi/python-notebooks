@@ -22,9 +22,9 @@ Finally, we can test our model by plotting its predictions on some of the test d
 
 ## Documentation
 
-#### Classes:
+###  Classes:
 
-##### `class GateDataset(csv_file, root_dir, transform=None)`
+#### `class GateDataset(csv_file, root_dir, transform=None)`
 
 A class that takes in the paths to your image/label data and allows you to traverse your dataset using Python indexing. An optional [transform.Compose](https://pytorch.org/docs/stable/torchvision/transforms.html) object can be applied to each item when returned. Implementation detail: images are read in only when specifically indexed to prevent having hundreds of megabytes of images loaded into memory at once. 
 
@@ -54,9 +54,30 @@ print(image.shape, target['boxes'], target['labels'])
 # Example output: (1080, 1720, 3), tensor([[1114,  466, 1153,  627]]), tensor([2])
 ```
 
-#### Functions
+### Functions
 
-##### `def detect_video(model, device, input_file, output_file)`
+#### `def collate_data(batch)`
+
+Utility function converting a list of the tuples returned from our custom GateDataset into a tuple of lists. Its primary usage is to tell a [DataLoader](https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader) how to properly batch data from a GateDataset into the format required to feed into the model; without passing this function into the DataLoader's `collate_fn` parameter, the train function will throw an error when you pass it the data loader. 
+
+**Parameters:**
+
+- `batch`: A list of the tuples returned by indexing a GateDataset.
+
+**Return:**
+
+A tuple (size 2) of lists, the first list containing the images and the second list containing the targets dictionaries returned by indexing a GateDataset. 
+
+**Example Usage:**
+
+```python
+dataset = GateDataset('labels.csv', 'images/', transform=None)
+loader = torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=True, collate_fn=collate_data)
+```
+
+
+
+#### `def detect_video(model, device, input_file, output_file)`
 
 Takes in a source video and generates a new video with live object detection at every frame. 
 
@@ -76,7 +97,7 @@ detect_video(model, device, 'input_video.mp4', 'out/video1.avi')
 
 
 
-##### `def get_clean_predictions(model, images, device)`
+#### `def get_clean_predictions(model, images, device)`
 
 Get predictions for a single image. 
 
@@ -104,7 +125,7 @@ labels, boxes, scores, image = get_clean_predictions(model, image, device)
 
 
 
-##### `def filter_top_predictions(labels, boxes, scores)`
+####  `def filter_top_predictions(labels, boxes, scores)`
 
 Filters out the top scoring predictions of each class from the given data. 
 
@@ -129,7 +150,7 @@ top_label, top_box, top_score = top_preds[0]
 
 
 
-##### `def int_to_label(val)`
+#### `def int_to_label(val)`
 
 Maps integers to labels after receiving predictions from a model. 
 
@@ -149,7 +170,7 @@ print(int_to_label(1)) # Prints 'start_gate'
 
 
 
-##### `def label_to_int(label)`
+#### `def label_to_int(label)`
 
 Maps string labels to integers in preparation for feeding into a model. 
 
@@ -169,7 +190,7 @@ print(label_to_int('start_gate')) # Prints 1
 
 
 
-##### `def load_model(path, device, num_classes)`
+#### `def load_model(path, device, num_classes)`
 
 Load model from saved weights. 
 
@@ -192,7 +213,7 @@ model = load_model('model_weights.pth', device, 3)
 
 
 
-##### `def plot_prediction_grid(model, dataset, device, start=0, step=2)`
+#### `def plot_prediction_grid(model, dataset, device, start=0, step=2)`
 
 Creates a 3x3 grid of plots containing the model's predictions over certain images in a dataset. 
 
@@ -213,7 +234,7 @@ plot_prediction_grid(model, dataset, device, start=20)
 
 
 
-##### `def reverse_normalize(image)`
+#### `def reverse_normalize(image)`
 
 Undos the default normalize transform on an image to return it to its original self (usually so that it can be plotted). The default normalization for PyTorch's pre-trained models is the following:
 
@@ -246,7 +267,7 @@ reverse_normalized_image = reverse_normalize(transformed_image)
 
 
 
-##### `def save_model(model, path)`
+#### `def save_model(model, path)`
 
 Saves the model weights to a .pth file. 
 
@@ -264,7 +285,7 @@ save_model(model, 'model_weights.pth')
 
 
 
-##### `def show_labeled_image(image, boxes)`
+#### `def show_labeled_image(image, boxes)`
 
 Plots an image along with boxes around detected objects. 
 
@@ -285,7 +306,7 @@ show_labeled_image(image, boxes)
 
 
 
-##### `def train_model(model, data_loader, device, epochs=10, learning_rate=0.005, lr_step_size=3)`
+#### `def train_model(model, data_loader, device, epochs=10, learning_rate=0.005, lr_step_size=3)`
 
 Trains a machine learning model.
 
@@ -319,7 +340,7 @@ losses = train_model(model, loader, device, epochs=5)
 
 
 
-##### `def xml_to_csv(path, output_path)`
+#### `def xml_to_csv(path, output_path)`
 
 Converts a directory of XML label files into a CSV file. The CSV file has the following columns in order: `filename, width, height, class, xmin, ymin, xmax, ymax`. Each row represents one set of labeled class and box coordinates for an image. 
 
@@ -342,7 +363,11 @@ xml_to_csv('xml_labels/', 'labels.csv')
 Below is some example code showing how to make use of the classes and functions created in the notebook. 
 
 ```python
-# TODO: this and collate_data
+import torch
+import torchvision
+from torchvision import transforms
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+import matplotlib.pyplot as plt
 
 # Convert your XML files into a single CSV file
 xml_to_csv('xml_labels/', 'labels.csv')
@@ -359,32 +384,34 @@ transform_img = transforms.Compose([
 
 # Create the dataset and data loader 
 dataset = GateDataset('labels.csv', 'images/', transform=transform_img)
-loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=2, shuffle=True, collate_fn=collate_data)
-
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+loader = torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=True, collate_fn=collate_data)
 
 # Load a model pre-trained on COCO
 model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
 
 # Number of classes we want the fine-tuned model to predict
-num_classes = NUM_CLASSES  # 3: start_tick + start_gate + background
-
+num_classes = 3
 # Get the number of input features for the classifier
 in_features = model.roi_heads.box_predictor.cls_score.in_features
+
 # Replace the pre-trained head with a new one
 model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
 
+# Send model to the GPU if available
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 model = model.to(device)
 
+# Train the model
+losses = train_model(model, loader, device, epochs=1)
 
-losses = train_model(model, loader_train, device, epochs=1, learning_rate=0.01, lr_step_size=2)
-
+# Plot loss over time
 plt.plot(losses)
 plt.show()
 
+# Plot some of the predictions made by the model
 plot_prediction_grid(model, dataset, device)
 
-detect_video(model, device, VIDEO_1, VIDEO_1_OUTPUT)
+# Generate a video with live object detection
+detect_video(model, device, 'input_video.mp4', 'output_video.avi')
 ```
 
